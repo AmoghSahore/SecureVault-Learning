@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Phase 1: Logic Lab</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; }
+        .box { border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h1>SecureVault Logic Lab 🧪</h1>
+    
+    <div class="box">
+        <h3>1. The Message</h3>
+        <input type="text" id="secretMessage" placeholder="Type secret here..." value="Hello MCA!">
+    </div>
+
+    <div class="box">
+        <h3>2. Actions</h3>
+        <button onclick="runEncryptionFlow()">🔒 Encrypt & Decrypt</button>
+    </div>
+
+    <div class="box">
+        <h3>3. Console Output (Check F12 too)</h3>
+        <pre id="output">Waiting...</pre>
+    </div>
+
+    <script>
+        // GLOBAL VARIABLES
+        let globalKey;
+        let globalIV;
+
+        function log(text) {
+            document.getElementById('output').innerText += "\n" + text;
+        }
+
+        // STEP A: Generate Key
+        async function generateKey() {
+            log("🔑 Generating AES-GCM Key...");
+            return await window.crypto.subtle.generateKey(
+                { name: "AES-GCM", length: 256 }, 
+                true, 
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        // STEP B: Encrypt
+        async function encrypt(text, key) {
+            log(`🔒 Encrypting: "${text}"`);
+            const encoder = new TextEncoder();
+            const encodedData = encoder.encode(text);
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            
+            const encryptedBuffer = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv },
+                key,
+                encodedData
+            );
+
+            return { encryptedBuffer, iv };
+        }
+
+        // STEP C: Decrypt
+        async function decrypt(encryptedBuffer, key, iv) {
+            log("🔓 Decrypting...");
+            try {
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: iv },
+                    key,
+                    encryptedBuffer
+                );
+                const decoder = new TextDecoder();
+                return decoder.decode(decryptedBuffer);
+            } catch (e) {
+                log("❌ Decryption Failed!");
+                console.error(e);
+            }
+        }
+
+        // MAIN FLOW
+        async function runEncryptionFlow() {
+            document.getElementById('output').innerText = ""; 
+            const text = document.getElementById('secretMessage').value;
+            globalKey = await generateKey();
+            const result = await encrypt(text, globalKey);
+            globalIV = result.iv;
+            
+            log(`📦 Encrypted Data (First 10 bytes): ${new Uint8Array(result.encryptedBuffer).slice(0, 10)}...`);
+
+            const originalText = await decrypt(result.encryptedBuffer, globalKey, globalIV);
+            log(`🎉 Result: "${originalText}"`);
+        }
+    </script>
+</body>
+</html>
